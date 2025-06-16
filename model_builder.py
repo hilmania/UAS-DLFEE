@@ -2,7 +2,7 @@
 
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import SimpleRNN, LSTM, GRU, Dense, Dropout, Bidirectional
+from tensorflow.keras.layers import Input, SimpleRNN, LSTM, GRU, Dense, Dropout, Bidirectional
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
 
@@ -22,16 +22,16 @@ def build_model(model_type, input_shape, num_classes, units=64, dropout_rate=0.2
         tf.keras.Model: Model yang sudah dikompilasi.
     """
     model = Sequential()
-
+    model.add(Input(shape=input_shape))  # Menambahkan input layer
     # Menentukan lapisan RNN berdasarkan model_type
     if model_type == 'simple_rnn':
-        model.add(SimpleRNN(units, activation='relu', input_shape=input_shape))
+        model.add(SimpleRNN(units, activation='tanh'))
     elif model_type == 'bidirectional_rnn':
-        model.add(Bidirectional(SimpleRNN(units, activation='relu'), input_shape=input_shape))
+        model.add(Bidirectional(SimpleRNN(units, activation='tanh')))
     elif model_type == 'lstm':
-        model.add(LSTM(units, input_shape=input_shape))
+        model.add(LSTM(units))
     elif model_type == 'gru':
-        model.add(GRU(units, input_shape=input_shape))
+        model.add(GRU(units))
     else:
         raise ValueError("Tipe model tidak dikenal. Pilih dari: 'simple_rnn', 'bidirectional_rnn', 'lstm', 'gru'")
 
@@ -47,7 +47,7 @@ def build_model(model_type, input_shape, num_classes, units=64, dropout_rate=0.2
 
     return model
 
-def train_model(model, X_train, y_train, epochs=30, batch_size=32):
+def train_model(model, X_train, y_train, epochs=30, batch_size=32, class_weight=None):
     """
     Melatih model dengan data pelatihan.
     """
@@ -59,6 +59,7 @@ def train_model(model, X_train, y_train, epochs=30, batch_size=32):
         batch_size=batch_size,
         validation_split=0.2,
         callbacks=[early_stopping],
+        class_weight=class_weight,
         verbose=0  # Set ke 0 agar output tidak terlalu ramai selama perbandingan
     )
     return history

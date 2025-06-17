@@ -1,0 +1,16 @@
+=== HASIL HYPERPARAMETER TUNING TERBAIK ===
+
+Studi: multi_model_rnn_tuning_batch_2
+Jumlah Trial yang Dijalankan: 100
+
+=============================================
+HASIL TERBAIK:
+=============================================
+Nilai (Max Validation Accuracy): 0.918750
+
+Parameter Terbaik:
+  - model_type: bidirectional_rnn
+  - units: 128
+  - dropout_rate: 0.3159536213332953
+  - learning_rate: 0.008475084939506591
+  - batch_size: 16

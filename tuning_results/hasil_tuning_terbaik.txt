@@ -1,0 +1,12 @@
+=== Hasil Tuning Hyperparameter Terbaik ===
+
+Studi: rnn_hyperparameter_tuning
+Jumlah Total Trial: 151
+
+Nilai Terbaik (Max Validation Accuracy): 0.9312499761581421
+
+Parameter Terbaik:
+  - units: 128
+  - dropout_rate: 0.2116030210942545
+  - learning_rate: 0.008009558335668698
+  - batch_size: 64

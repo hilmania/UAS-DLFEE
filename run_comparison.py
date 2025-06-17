@@ -1,15 +1,13 @@
-# run_comparison.py (Versi Final yang Disesuaikan)
-
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import classification_report
-from sklearn.utils.class_weight import compute_class_weight # <-- 1. TAMBAHKAN IMPORT INI
+from sklearn.utils.class_weight import compute_class_weight
 
 # Impor modul kita
 import data_processing
-import model_builder # Pastikan file ini adalah versi terbaru
+import model_builder
 import os
 
 def plot_training_history(history, save_path=None, model_name=''):
@@ -35,7 +33,7 @@ def plot_training_history(history, save_path=None, model_name=''):
     ax2.set_ylabel('Loss')
     ax2.legend()
 
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust layout to make room for suptitle
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
     if save_path:
         plt.savefig(save_path, dpi=300)

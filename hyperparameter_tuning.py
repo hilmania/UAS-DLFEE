@@ -1,89 +1,119 @@
-# hyperparameter_tuning.py
-
 import optuna
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping
+from sklearn.utils.class_weight import compute_class_weight
+import os
 
-# Mengimpor modul yang sudah kita buat
+# Impor modul kita
 import data_processing
-import model
+import model_tune
 
-# Memuat data sekali saja di luar objective function untuk efisiensi
+# --- Memuat Data ---
 print("Memuat dan memproses data untuk tuning...")
-X_train, X_test, y_train, y_test, encoder = data_processing.load_and_preprocess_data(
+X_train, X_test, y_train, y_test = data_processing.load_and_preprocess_data(
     'university_mental_health_iot_dataset.csv',
-    perform_eda=False # Matikan EDA selama tuning
+    perform_eda=False
 )
 print("Data siap.")
 
+# --- Menghitung Class Weight ---
+class_weights = compute_class_weight('balanced', classes=np.unique(y_train), y=y_train)
+class_weights_dict = dict(enumerate(class_weights))
+print(f"\nMenggunakan Class Weights untuk tuning: {class_weights_dict}")
+
+# --- Objective Function (tetap sama) ---
 def objective(trial):
-    """
-    Fungsi objective yang akan dioptimalkan oleh Optuna.
-    Setiap 'trial' adalah satu set hyperparameter.
-    """
-    # 1. Definisikan Ruang Pencarian (Search Space) untuk Hyperparameter
-    rnn_units_1 = trial.suggest_int('rnn_units_1', 32, 128, step=16)
-    rnn_units_2 = trial.suggest_int('rnn_units_2', 16, 64, step=16)
+    units = trial.suggest_int('units', 32, 128, step=16)
     dropout_rate = trial.suggest_float('dropout_rate', 0.1, 0.5)
     learning_rate = trial.suggest_float('learning_rate', 1e-4, 1e-2, log=True)
     batch_size = trial.suggest_categorical('batch_size', [16, 32, 64])
 
-    # Membersihkan session Keras untuk mencegah kebocoran model
     tf.keras.backend.clear_session()
 
-    # 2. Bangun model dengan hyperparameter dari trial ini
     input_shape = (X_train.shape[1], X_train.shape[2])
-    num_classes = len(encoder.classes_)
+    num_classes = len(np.unique(y_train))
 
-    rnn_model = model.build_rnn_model(
+    rnn_model = model_tune.build_rnn_model(
         input_shape=input_shape,
         num_classes=num_classes,
-        rnn_units_1=rnn_units_1,
-        rnn_units_2=rnn_units_2,
+        rnn_units_1=units,
+        rnn_units_2=int(units/2),
         dropout_rate=dropout_rate,
         learning_rate=learning_rate
     )
 
-    # Callback untuk menghentikan training lebih awal jika tidak ada peningkatan
-    # Ini penting untuk mempercepat proses tuning
-    early_stopping = EarlyStopping(monitor='val_accuracy', patience=5)
+    early_stopping = EarlyStopping(monitor='val_accuracy', patience=5, restore_best_weights=True)
 
-    # 3. Latih model
     history = rnn_model.fit(
-        X_train,
-        y_train,
-        epochs=30, # Gunakan epoch yang tidak terlalu banyak untuk tuning
+        X_train, y_train,
+        epochs=30,
         batch_size=batch_size,
-        validation_split=0.2, # Gunakan sebagian data train untuk validasi
+        validation_split=0.2,
         callbacks=[early_stopping],
-        verbose=0 # Matikan log training agar output bersih
+        class_weight=class_weights_dict,
+        verbose=0
     )
 
-    # 4. Kembalikan metrik yang ingin dioptimalkan (akurasi validasi tertinggi)
     val_accuracy = np.max(history.history['val_accuracy'])
     return val_accuracy
 
+# --- Bagian Utama ---
 if __name__ == '__main__':
-    # Buat objek 'study' Optuna. Kita ingin memaksimalkan akurasi.
-    study = optuna.create_study(direction='maximize')
+    # Membuat folder results jika belum ada
+    RESULTS_DIR = 'tuning_results'
+    if not os.path.exists(RESULTS_DIR):
+        os.makedirs(RESULTS_DIR)
 
-    # Mulai proses optimisasi. Optuna akan memanggil fungsi 'objective' berulang kali.
-    # n_trials adalah jumlah total kombinasi hyperparameter yang akan dicoba.
-    print("\n--- Memulai Hyperparameter Tuning dengan Optuna ---")
-    study.optimize(objective, n_trials=50) # Anda bisa menambah/mengurangi jumlah trial
+    # --- PENYESUAIAN 1: Mendefinisikan Storage untuk Menyimpan Progres ---
+    study_name = "rnn_hyperparameter_tuning"  # Nama unik untuk studi ini
+    storage_name = f"sqlite:///{study_name}.db" # File database akan dibuat
 
-    # Tampilkan hasil terbaik
+    # Buat atau muat 'study' dari database
+    study = optuna.create_study(
+        study_name=study_name,
+        storage=storage_name,
+        direction='maximize',
+        load_if_exists=True # <-- Ini kuncinya! Muat progres jika file .db sudah ada
+    )
+
+    print(f"\n--- Memulai/Melanjutkan Hyperparameter Tuning ---")
+    print(f"Progres akan disimpan di file: {study_name}.db")
+    # Jika sudah ada trial sebelumnya, Optuna akan melanjutkannya
+    study.optimize(objective, n_trials=50)
+
+    # Menampilkan hasil terbaik
     print("\n--- Tuning Selesai ---")
     print("Jumlah trial yang selesai: ", len(study.trials))
-
     print("\nTrial terbaik:")
     best_trial = study.best_trial
-
     print(f"  Value (Max Validation Accuracy): {best_trial.value:.4f}")
-
     print("  Params: ")
     for key, value in best_trial.params.items():
         print(f"    {key}: {value}")
 
-    print("\nSaran: Gunakan parameter di atas dalam file 'main.py' untuk melatih model final.")
+    # --- PENYESUAIAN 2: Menyimpan Hasil Tuning sebagai Grafik ---
+    print("\n--- Menyimpan Grafik Hasil Tuning ---")
+
+    # 1. Grafik Riwayat Optimisasi
+    try:
+        fig1 = optuna.visualization.plot_optimization_history(study)
+        fig1_path = os.path.join(RESULTS_DIR, "tuning_history.png")
+        fig1.write_image(fig1_path)
+        print(f"Grafik riwayat optimisasi disimpan di: {fig1_path}")
+
+        # 2. Grafik Pentingnya Hyperparameter
+        fig2 = optuna.visualization.plot_param_importances(study)
+        fig2_path = os.path.join(RESULTS_DIR, "tuning_param_importances.png")
+        fig2.write_image(fig2_path)
+        print(f"Grafik pentingnya parameter disimpan di: {fig2_path}")
+
+        # 3. Grafik Slice Plot
+        fig3 = optuna.visualization.plot_slice(study)
+        fig3_path = os.path.join(RESULTS_DIR, "tuning_slice_plot.png")
+        fig3.write_image(fig3_path)
+        print(f"Grafik slice plot disimpan di: {fig3_path}")
+    except (ValueError, ImportError) as e:
+        print(f"\nTidak bisa membuat plot, mungkin karena library visualisasi belum terinstal.")
+        print("Silakan jalankan: pip install plotly kaleido")
+        print(f"Error: {e}")

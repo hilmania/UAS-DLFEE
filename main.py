@@ -1,5 +1,3 @@
-# main.py
-
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -40,7 +38,7 @@ def plot_training_history(history, save_path=None):
     else:
         plt.show()
 
-    plt.close(fig)  # Tutup plot untuk menghemat memori
+    plt.close(fig)
 
 def plot_confusion_matrix(y_true, y_pred, class_names, save_path=None):
     """Membuat plot confusion matrix."""
@@ -58,7 +56,7 @@ def plot_confusion_matrix(y_true, y_pred, class_names, save_path=None):
     else:
         plt.show()
 
-    plt.close()  # Tutup plot untuk menghemat memori
+    plt.close()
 
 if __name__ == '__main__':
     # Definisi path dataset

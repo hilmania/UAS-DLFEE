@@ -22,7 +22,7 @@ class_weights = compute_class_weight('balanced', classes=np.unique(y_train), y=y
 class_weights_dict = dict(enumerate(class_weights))
 print(f"\nMenggunakan Class Weights untuk tuning: {class_weights_dict}")
 
-# --- Objective Function (tetap sama) ---
+# --- Objective Function ---
 def objective(trial):
     units = trial.suggest_int('units', 32, 128, step=16)
     dropout_rate = trial.suggest_float('dropout_rate', 0.1, 0.5)
@@ -65,7 +65,7 @@ if __name__ == '__main__':
     if not os.path.exists(RESULTS_DIR):
         os.makedirs(RESULTS_DIR)
 
-    # --- PENYESUAIAN 1: Mendefinisikan Storage untuk Menyimpan Progres ---
+    # --- Mendefinisikan Storage untuk Menyimpan Progres ---
     study_name = "rnn_hyperparameter_tuning"  # Nama unik untuk studi ini
     storage_name = f"sqlite:///{study_name}.db" # File database akan dibuat
 
@@ -74,7 +74,7 @@ if __name__ == '__main__':
         study_name=study_name,
         storage=storage_name,
         direction='maximize',
-        load_if_exists=True # <-- Ini kuncinya! Muat progres jika file .db sudah ada
+        load_if_exists=True # Muat progres jika file .db sudah ada
     )
 
     print(f"\n--- Memulai/Melanjutkan Hyperparameter Tuning ---")
@@ -92,7 +92,24 @@ if __name__ == '__main__':
     for key, value in best_trial.params.items():
         print(f"    {key}: {value}")
 
-    # --- PENYESUAIAN 2: Menyimpan Hasil Tuning sebagai Grafik ---
+    file_path = os.path.join(RESULTS_DIR, "hasil_tuning_terbaik.txt")
+    try:
+        with open(file_path, 'w') as f:
+            f.write("=== Hasil Tuning Hyperparameter Terbaik ===\n\n")
+            f.write(f"Studi: {study.study_name}\n")
+            f.write(f"Jumlah Total Trial: {len(study.trials)}\n\n")
+            f.write(f"Nilai Terbaik (Max Validation Accuracy): {best_trial.value}\n\n")
+            f.write("Parameter Terbaik:\n")
+
+            for key, value in best_trial.params.items():
+                print(f"    {key}: {value}")
+                f.write(f"  - {key}: {value}\n")
+
+        print(f"\n[INFO] Hasil terbaik juga telah disimpan ke file: {file_path}")
+    except Exception as e:
+        print(f"\n[ERROR] Gagal menyimpan hasil ke file: {e}")
+
+    # --- Menyimpan Hasil Tuning sebagai Grafik ---
     print("\n--- Menyimpan Grafik Hasil Tuning ---")
 
     # 1. Grafik Riwayat Optimisasi
